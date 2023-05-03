@@ -122,14 +122,41 @@ def find_best_frame(source, driving, cpu):
             pass
     return frame_num
 
+def gogo_animation(source_image, driving_video, result_video):
+    img_shape = [256,256]
+    config = 'config/vox-256.yaml'
+    checkpoint = 'checkpoints/vox.pth.tar'
+    mode = 'relative'
+    source_image = imageio.imread(source_image)
+    reader = imageio.get_reader(driving_video)
+    fps = reader.get_meta_data()['fps']
+    driving_video = []
+    try:
+        for im in reader:
+            driving_video.append(im)
+    except RuntimeError:
+        pass
+    reader.close()
+    
+    device = torch.device('cuda')
+    
+    source_image = resize(source_image, img_shape)[..., :3]
+    driving_video = [resize(frame, img_shape)[..., :3] for frame in driving_video]
+    inpainting, kp_detector, dense_motion_network, avd_network = load_checkpoints(config_path = config, checkpoint_path = checkpoint, device = device)
+ 
+    predictions = make_animation(source_image, driving_video, inpainting, kp_detector, dense_motion_network, avd_network, device = device, mode = mode)
+    
+    imageio.mimsave(result_video, [img_as_ubyte(frame) for frame in predictions], fps=fps)    
+    
+    
 
 if __name__ == "__main__":
     parser = ArgumentParser()
-    parser.add_argument("--config", required=True, help="path to config")
-    parser.add_argument("--checkpoint", default='checkpoints/vox.pth.tar', help="path to checkpoint to restore")
+    #parser.add_argument("--config", required=True, help="path to config")
+    #parser.add_argument("--checkpoint", default='checkpoints/vox.pth.tar', help="path to checkpoint to restore")
 
-    parser.add_argument("--source_image", default='./assets/source.png', help="path to source image")
-    parser.add_argument("--driving_video", default='./assets/driving.mp4', help="path to driving video")
+    #parser.add_argument("--source_image", default='./assets/source.png', help="path to source image")
+    #parser.add_argument("--driving_video", default='./assets/driving.mp4', help="path to driving video")
     parser.add_argument("--result_video", default='./result.mp4', help="path to output")
     
     parser.add_argument("--img_shape", default="256,256", type=lambda x: list(map(int, x.split(','))),
@@ -143,37 +170,63 @@ if __name__ == "__main__":
     parser.add_argument("--cpu", dest="cpu", action="store_true", help="cpu mode.")
 
     opt = parser.parse_args()
+    
+    
+    #opt.config = 'config/taichi-256.yaml'
+    opt.config = 'config/vox-256.yaml'
+    
+    #opt.source_image = '/media/user/play/project/lumia/content/data/source/dj/KakaoTalk_20230113_153856302_16.jpg'
+    #opt.source_image = '/media/user/play/project/lumia/content/data/source/dj/KakaoTalk_20221221_232429203.jpg'
+    #opt.source_image = '/media/user/play/project/lumia/outputs/djkim123_v1_dj_man_b10_1000_full/20230421_113808/prom_2_2.png'
+    #opt.source_image = '/media/user/play/project/lumia/outputs/djkim123_v1_dj_man_b10_1000_full/20230421_113808/prom_3_1.png'
+    #opt.source_image = '/media/user/play/project/lumia/outputs/djkim123_v1_dj_man_b10_1000_full/20230421_113808/prom_11_1.png'
+    #opt.source_image = '/media/user/play/project/lumia/outputs/djkim123_v1_dj_man_b10_1000_full/20230421_113808/prom_19_5.png'
+    #opt.source_image = '/media/user/play/project/lumia/outputs/djkim123_v1_dj_man_b10_1000_full/20230421_113808/prom_2_9.png'
+    #opt.source_image = '/media/user/play/project/lumia/outputs/djkim123_v1_dj_man_b10_1000_full/20230421_113808/prom_13_5.png'
+    opt.source_image = '/media/user/play/project/lumia/outputs/djkim123_v1_debugger_dj_man_b10_1000_full/20230503_114516/prom_1_ani-23_1.png'
+    
+    opt.checkpoint = 'checkpoints/vox.pth.tar'
+    #opt.driving_video = 'assets/driving.mp4'
+    #opt.driving_video = 'assets/smile6.mp4'
+    for index in range(3, 19):
+        opt.driving_video = 'assets/face%s.mp4' % index
+        opt.result_video = './result%s.mp4' % index
 
-    source_image = imageio.imread(opt.source_image)
-    reader = imageio.get_reader(opt.driving_video)
-    fps = reader.get_meta_data()['fps']
-    driving_video = []
-    try:
-        for im in reader:
-            driving_video.append(im)
-    except RuntimeError:
-        pass
-    reader.close()
+        print('processing %s' % opt.driving_video)
+        
+        #opt.find_best_frame = True
     
-    if opt.cpu:
-        device = torch.device('cpu')
-    else:
-        device = torch.device('cuda')
+        source_image = imageio.imread(opt.source_image)
+        reader = imageio.get_reader(opt.driving_video)
+        fps = reader.get_meta_data()['fps']
+        driving_video = []
+        try:
+            for im in reader:
+                driving_video.append(im)
+        except RuntimeError:
+            pass
+        reader.close()
+        
+        if opt.cpu:
+            device = torch.device('cpu')
+        else:
+            device = torch.device('cuda')
+        
+        source_image = resize(source_image, opt.img_shape)[..., :3]
+        driving_video = [resize(frame, opt.img_shape)[..., :3] for frame in driving_video]
+        inpainting, kp_detector, dense_motion_network, avd_network = load_checkpoints(config_path = opt.config, checkpoint_path = opt.checkpoint, device = device)
+     
+        if opt.find_best_frame:
+            i = find_best_frame(source_image, driving_video, opt.cpu)
+            print ("Best frame: " + str(i))
+            driving_forward = driving_video[i:]
+            driving_backward = driving_video[:(i+1)][::-1]
+            predictions_forward = make_animation(source_image, driving_forward, inpainting, kp_detector, dense_motion_network, avd_network, device = device, mode = opt.mode)
+            predictions_backward = make_animation(source_image, driving_backward, inpainting, kp_detector, dense_motion_network, avd_network, device = device, mode = opt.mode)
+            predictions = predictions_backward[::-1] + predictions_forward[1:]
+        else:
+            predictions = make_animation(source_image, driving_video, inpainting, kp_detector, dense_motion_network, avd_network, device = device, mode = opt.mode)
+        
+        imageio.mimsave(opt.result_video, [img_as_ubyte(frame) for frame in predictions], fps=fps)
     
-    source_image = resize(source_image, opt.img_shape)[..., :3]
-    driving_video = [resize(frame, opt.img_shape)[..., :3] for frame in driving_video]
-    inpainting, kp_detector, dense_motion_network, avd_network = load_checkpoints(config_path = opt.config, checkpoint_path = opt.checkpoint, device = device)
- 
-    if opt.find_best_frame:
-        i = find_best_frame(source_image, driving_video, opt.cpu)
-        print ("Best frame: " + str(i))
-        driving_forward = driving_video[i:]
-        driving_backward = driving_video[:(i+1)][::-1]
-        predictions_forward = make_animation(source_image, driving_forward, inpainting, kp_detector, dense_motion_network, avd_network, device = device, mode = opt.mode)
-        predictions_backward = make_animation(source_image, driving_backward, inpainting, kp_detector, dense_motion_network, avd_network, device = device, mode = opt.mode)
-        predictions = predictions_backward[::-1] + predictions_forward[1:]
-    else:
-        predictions = make_animation(source_image, driving_video, inpainting, kp_detector, dense_motion_network, avd_network, device = device, mode = opt.mode)
-    
-    imageio.mimsave(opt.result_video, [img_as_ubyte(frame) for frame in predictions], fps=fps)
 
