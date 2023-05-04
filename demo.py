@@ -122,11 +122,14 @@ def find_best_frame(source, driving, cpu):
             pass
     return frame_num
 
-def gogo_animation(source_image, driving_video, result_video):
+def gogo_animation(gpu_no, source_image, driving_video, result_video):
     img_shape = [256,256]
     config = 'config/vox-256.yaml'
     checkpoint = 'checkpoints/vox.pth.tar'
     mode = 'relative'
+
+    print('[GPU %s] animation processing %s' % (gpu_no, driving_video))
+    
     source_image = imageio.imread(source_image)
     reader = imageio.get_reader(driving_video)
     fps = reader.get_meta_data()['fps']
@@ -182,15 +185,15 @@ if __name__ == "__main__":
     #opt.source_image = '/media/user/play/project/lumia/outputs/djkim123_v1_dj_man_b10_1000_full/20230421_113808/prom_11_1.png'
     #opt.source_image = '/media/user/play/project/lumia/outputs/djkim123_v1_dj_man_b10_1000_full/20230421_113808/prom_19_5.png'
     #opt.source_image = '/media/user/play/project/lumia/outputs/djkim123_v1_dj_man_b10_1000_full/20230421_113808/prom_2_9.png'
-    #opt.source_image = '/media/user/play/project/lumia/outputs/djkim123_v1_dj_man_b10_1000_full/20230421_113808/prom_13_5.png'
-    opt.source_image = '/media/user/play/project/lumia/outputs/djkim123_v1_debugger_dj_man_b10_1000_full/20230503_114516/prom_1_ani-23_1.png'
+    opt.source_image = '/media/user/play/project/lumia/outputs/djkim123_v1_dj_man_b10_1000_full/20230421_113808/prom_13_5.png'
+    #opt.source_image = '/media/user/play/project/lumia/outputs/djkim123_v1_debugger_dj_man_b10_1000_full/20230503_114516/prom_1_ani-23_1.png'
     
     opt.checkpoint = 'checkpoints/vox.pth.tar'
     #opt.driving_video = 'assets/driving.mp4'
-    #opt.driving_video = 'assets/smile6.mp4'
-    for index in range(3, 19):
-        opt.driving_video = 'assets/face%s.mp4' % index
-        opt.result_video = './result%s.mp4' % index
+    #opt.driving_video = 'assets/smile6.mp4'    
+    for index in range(1, 7):
+        opt.driving_video = 'assets/face-%s.mp4' % index
+        opt.result_video = './result-%s.mp4' % index
 
         print('processing %s' % opt.driving_video)
         
