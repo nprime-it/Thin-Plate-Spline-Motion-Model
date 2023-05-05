@@ -74,7 +74,7 @@ def make_animation(source_image, driving_video, inpainting_network, kp_detector,
         kp_source = kp_detector(source)
         kp_driving_initial = kp_detector(driving[:, :, 0])
 
-        for frame_idx in tqdm(range(driving.shape[2])):
+        for frame_idx in tqdm(range(driving.shape[2]), miniters=1000):
             driving_frame = driving[:, :, frame_idx]
             driving_frame = driving_frame.to(device)
             kp_driving = kp_detector(driving_frame)
